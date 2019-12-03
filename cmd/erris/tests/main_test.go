@@ -21,18 +21,14 @@ func TestMain(m *testing.M) {
 		log.Fatalf("run os getwd: %v", err)
 	}
 
-	dir = path.Join(dir, binaryName)
-	build := exec.Command("go", "build")
-	build.Dir = dir
+	build := exec.Command("go", "build", "-o", path.Join(dir, "tests", binaryName))
 	err = build.Run()
 	if err != nil {
 		log.Fatalf("could not make binary for %s: %v\n", binaryName, err)
 	}
 
 	code := m.Run()
-
-	os.RemoveAll(path.Join(dir, binaryName))
-
+	os.RemoveAll(path.Join(dir, "tests", binaryName))
 	os.Exit(code)
 }
 
@@ -55,8 +51,8 @@ func TestCliArgs(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			dir = path.Join(dir, binaryName)
-			tc.args = append(tc.args, "../../testdata")
+			dir = path.Join(dir, "tests")
+			tc.args = append(tc.args, "testdata")
 			cmd := exec.Command(path.Join(dir, binaryName), tc.args...)
 			cmd.Dir = dir
 			output, err := cmd.CombinedOutput()

@@ -16,7 +16,7 @@ func New(p *analysis.Pass) *Visitor {
 			Type().
 			Underlying().(*types.Interface),
 		pass:   p,
-		Issues: make(Issues, 0, 10),
+		Issues: make([]Issue, 0, 10),
 	}
 
 	return &v
@@ -33,14 +33,6 @@ type Visitor struct {
 type Issue struct {
 	Text string
 	Node ast.Node
-}
-
-// Issues holder for issue.
-type Issues []Issue
-
-// Error implements error.
-func (i Issues) Error() string {
-	return "erris issues found"
 }
 
 // Visit implements ast.Visitor.
@@ -70,7 +62,7 @@ func (v *Visitor) Visit(node ast.Node) ast.Visitor {
 		x := v.typeOf(t.X)
 		if v.isErrorTypes(x) {
 			v.Issues = append(v.Issues, Issue{
-				Text: "use errors.As to assert an error",
+				Text: "use errors.As to type assert an error",
 				Node: t,
 			})
 		}

@@ -15,7 +15,9 @@ import (
 	"golang.org/x/tools/imports"
 )
 
-type position struct{ Line int }
+type position struct {
+	Line int
+}
 
 func (p position) Pos() token.Pos { return token.Pos(p.Line) }
 func (p position) End() token.Pos { return token.NoPos }
@@ -24,7 +26,7 @@ func TestVisitorVisit(t *testing.T) {
 	tt := []struct {
 		name    string
 		content string
-		expect  visitor.Issues
+		expect  []visitor.Issue
 	}{
 		{
 			name: "without issues",
@@ -36,7 +38,7 @@ func TestVisitorVisit(t *testing.T) {
 			var r io.Reader
 			if errors.As(err, &r) {}
 			`,
-			expect: make(visitor.Issues, 0),
+			expect: make([]visitor.Issue, 0),
 		},
 		{
 			name: "equasion",
@@ -45,7 +47,7 @@ func TestVisitorVisit(t *testing.T) {
 			if err == io.EOF {}
 			if err != io.EOF {}
 			`,
-			expect: visitor.Issues{
+			expect: []visitor.Issue{
 				{
 					Text: "use errors.Is to compare an error",
 					Node: position{
@@ -69,15 +71,15 @@ func TestVisitorVisit(t *testing.T) {
 			case io.Reader:
 			}
 			`,
-			expect: visitor.Issues{
+			expect: []visitor.Issue{
 				{
-					Text: "use errors.As to assert an error",
+					Text: "use errors.As to type assert an error",
 					Node: position{
 						Line: 11,
 					},
 				},
 				{
-					Text: "use errors.As to assert an error",
+					Text: "use errors.As to type assert an error",
 					Node: position{
 						Line: 13,
 					},
@@ -107,7 +109,7 @@ func TestVisitorVisit(t *testing.T) {
 	}
 }
 
-func assertIssues(t *testing.T, fset *token.FileSet, got, expect visitor.Issues) {
+func assertIssues(t *testing.T, fset *token.FileSet, got, expect []visitor.Issue) {
 	t.Helper()
 
 	if len(got) != len(expect) {
