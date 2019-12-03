@@ -10,15 +10,23 @@ import (
 	"testing"
 
 	"github.com/romanyx/erris/internal/visitor"
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
 )
+
+type position struct {
+	Line int
+}
+
+func (p position) Pos() token.Pos { return token.Pos(p.Line) }
+func (p position) End() token.Pos { return token.NoPos }
 
 func TestVisitorVisit(t *testing.T) {
 	tt := []struct {
 		name    string
 		content string
-		expect  visitor.Issues
+		expect  []visitor.Issue
 	}{
 		{
 			name: "without issues",
@@ -30,7 +38,7 @@ func TestVisitorVisit(t *testing.T) {
 			var r io.Reader
 			if errors.As(err, &r) {}
 			`,
-			expect: make(visitor.Issues, 0),
+			expect: make([]visitor.Issue, 0),
 		},
 		{
 			name: "equasion",
@@ -39,16 +47,16 @@ func TestVisitorVisit(t *testing.T) {
 			if err == io.EOF {}
 			if err != io.EOF {}
 			`,
-			expect: visitor.Issues{
+			expect: []visitor.Issue{
 				{
 					Text: "use errors.Is to compare an error",
-					Pos: token.Position{
+					Node: position{
 						Line: 11,
 					},
 				},
 				{
 					Text: "use errors.Is to compare an error",
-					Pos: token.Position{
+					Node: position{
 						Line: 13,
 					},
 				},
@@ -63,16 +71,16 @@ func TestVisitorVisit(t *testing.T) {
 			case io.Reader:
 			}
 			`,
-			expect: visitor.Issues{
+			expect: []visitor.Issue{
 				{
-					Text: "use errors.As to assert an error",
-					Pos: token.Position{
+					Text: "use errors.As to type assert an error",
+					Node: position{
 						Line: 11,
 					},
 				},
 				{
-					Text: "use errors.As to assert an error",
-					Pos: token.Position{
+					Text: "use errors.As to type assert an error",
+					Node: position{
 						Line: 13,
 					},
 				},
@@ -84,28 +92,24 @@ func TestVisitorVisit(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			pkgs, err := visitorSuite(t, fmt.Sprintf(baseContent, tc.content))
+			pass, err := visitorSuite(t, fmt.Sprintf(baseContent, tc.content))
 			if err != nil {
 				t.Error(err)
 				return
 			}
 
-			issues := make(visitor.Issues, 0)
-			for _, pkg := range pkgs {
-				v := visitor.New(pkg)
+			v := visitor.New(pass)
 
-				for _, astFile := range pkg.Syntax {
-					ast.Walk(v, astFile)
-				}
-				issues = append(issues, v.Issues...)
+			for _, astFile := range pass.Files {
+				ast.Walk(v, astFile)
 			}
 
-			assertIssues(t, issues, tc.expect)
+			assertIssues(t, pass.Fset, v.Issues, tc.expect)
 		})
 	}
 }
 
-func assertIssues(t *testing.T, got, expect visitor.Issues) {
+func assertIssues(t *testing.T, fset *token.FileSet, got, expect []visitor.Issue) {
 	t.Helper()
 
 	if len(got) != len(expect) {
@@ -118,13 +122,13 @@ func assertIssues(t *testing.T, got, expect visitor.Issues) {
 			t.Errorf("got text: '%s' expected: '%s'", issue.Text, expect[i].Text)
 		}
 
-		if issue.Pos.Line != expect[i].Pos.Line {
-			t.Errorf("got line: %d expected: %d", issue.Pos.Line, expect[i].Pos.Line)
+		if fset.Position(issue.Node.Pos()).Line != expect[i].Node.(position).Line {
+			t.Errorf("got pos: %d expected: %d", issue.Node.Pos(), expect[i].Node.Pos())
 		}
 	}
 }
 
-func visitorSuite(t *testing.T, content string) ([]*packages.Package, error) {
+func visitorSuite(t *testing.T, content string) (*analysis.Pass, error) {
 	t.Helper()
 
 	// copy testvendor directory into directory for test
@@ -160,18 +164,22 @@ func visitorSuite(t *testing.T, content string) ([]*packages.Package, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load packages: %v", err)
 	}
-
-	for _, pkg := range pkgs {
-		if len(pkg.Errors) > 0 {
-			return nil, fmt.Errorf(
-				"errors while loading package %s: %v",
-				pkg.ID,
-				pkg.Errors,
-			)
-		}
+	if len(pkgs) != 1 {
+		return nil, fmt.Errorf("got more than one package")
 	}
-
-	return pkgs, nil
+	pkg := pkgs[0]
+	if len(pkg.Errors) > 0 {
+		return nil, fmt.Errorf(
+			"errors while loading package %s: %v",
+			pkg.ID,
+			pkg.Errors,
+		)
+	}
+	return &analysis.Pass{
+		Fset:      pkg.Fset,
+		Files:     pkg.Syntax,
+		TypesInfo: pkg.TypesInfo,
+	}, nil
 }
 
 var baseContent = `package main

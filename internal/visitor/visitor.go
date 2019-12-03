@@ -5,18 +5,18 @@ import (
 	"go/token"
 	"go/types"
 
-	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/analysis"
 )
 
 // New returns prepared visitor.
-func New(pkg *packages.Package) *Visitor {
+func New(p *analysis.Pass) *Visitor {
 	v := Visitor{
 		errorType: types.Universe.
 			Lookup("error").
 			Type().
 			Underlying().(*types.Interface),
-		pkg:    pkg,
-		Issues: make(Issues, 0, 10),
+		pass:   p,
+		Issues: make([]Issue, 0, 10),
 	}
 
 	return &v
@@ -25,22 +25,14 @@ func New(pkg *packages.Package) *Visitor {
 // Visitor holds package and issues.
 type Visitor struct {
 	errorType *types.Interface
-	pkg       *packages.Package
+	pass      *analysis.Pass
 	Issues    []Issue
 }
 
 // Issue representation.
 type Issue struct {
 	Text string
-	Pos  token.Position
-}
-
-// Issues holder for issue.
-type Issues []Issue
-
-// Error implements error.
-func (i Issues) Error() string {
-	return "erris issues found"
+	Node ast.Node
 }
 
 // Visit implements ast.Visitor.
@@ -61,7 +53,7 @@ func (v *Visitor) Visit(node ast.Node) ast.Visitor {
 		if v.isErrorTypes(x, y) {
 			v.Issues = append(v.Issues, Issue{
 				Text: "use errors.Is to compare an error",
-				Pos:  v.position(t),
+				Node: t,
 			})
 		}
 	// switch err.(type)
@@ -70,8 +62,8 @@ func (v *Visitor) Visit(node ast.Node) ast.Visitor {
 		x := v.typeOf(t.X)
 		if v.isErrorTypes(x) {
 			v.Issues = append(v.Issues, Issue{
-				Text: "use errors.As to assert an error",
-				Pos:  v.position(t),
+				Text: "use errors.As to type assert an error",
+				Node: t,
 			})
 		}
 	}
@@ -90,9 +82,5 @@ func (v *Visitor) isErrorTypes(ts ...types.Type) bool {
 }
 
 func (v *Visitor) typeOf(e ast.Expr) types.Type {
-	return v.pkg.TypesInfo.TypeOf(e)
-}
-
-func (v *Visitor) position(n ast.Node) (pos token.Position) {
-	return v.pkg.Fset.Position(n.Pos())
+	return v.pass.TypesInfo.TypeOf(e)
 }
