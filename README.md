@@ -23,7 +23,7 @@ Outputs:
 
 ```sh
 github.com/romanyx/erris/testdata/main.go:14:5:	use errors.Is to compare an error
-github.com/romanyx/erris/testdata/main_test.go:11:14:	use errors.As to assert an error
+github.com/romanyx/erris/testdata/main_test.go:11:14:	use errors.As to type assert an error
 ```
 
 To check all packages beneath the current directory:
