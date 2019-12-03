@@ -43,7 +43,7 @@ func TestCliArgs(t *testing.T) {
 		numIssues int
 	}{
 		{"no arguments", []string{}, 2},
-		{"ignore tests", []string{"-ignoretests"}, 1},
+		{"ignore tests", []string{"-ignoretests"}, 2},
 	}
 
 	for _, tc := range tt {
@@ -56,7 +56,7 @@ func TestCliArgs(t *testing.T) {
 			}
 
 			dir = path.Join(dir, binaryName)
-			tc.args = append(tc.args, "./testdata")
+			tc.args = append(tc.args, "../../testdata")
 			cmd := exec.Command(path.Join(dir, binaryName), tc.args...)
 			cmd.Dir = dir
 			output, err := cmd.CombinedOutput()

@@ -8,7 +8,7 @@ erris is a program for checking that errors are compared or type asserted using 
 ## Install
 
 ```sh
-go get -u github.com/romanyx/erris
+go get -u github.com/romanyx/erris/cmd/erris
 ```
 
 ## Use
